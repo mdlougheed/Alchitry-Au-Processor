@@ -1,0 +1,61 @@
+// LUCID HDL CPU example project
+// From Chapter 9 - A Basic Processor - Learning FPGAs by Justin Rajewski - (c) 2017
+// Published by O’Reilly Media, Inc., 1005 Gravenstein Highway North, Sebastopol, CA 95472.
+//
+// MDL Notes: 
+// (SEP-2021)
+// Tuned up to run on the Alchitry Au FPGA board.
+// Known to sucessfully synthesize using Alchitry Labs (1.2.7) + Xilinx Vivado (2019.1)
+//
+
+
+module au_top (
+  input clk,              // 100MHz clock on AU 
+  input rst_n,            // reset button (active low)
+  output led [8],         // 8 user controllable LEDs
+    
+  input usb_rx,           // USB->Serial input
+  output usb_tx           // USB->Serial output
+) {
+
+  
+  sig rst; // reset signal
+  
+  
+  .clk(clk) {
+    // The reset conditioner is used to synchronize the reset signal to the FPGA
+    // clock. This ensures the entire FPGA comes out of reset at the same time.
+    reset_conditioner reset_cond;
+    
+    .rst(rst) {
+    cpu cpu;        // instantiate our snazzy CPU
+    dff led_reg[8]; // storage for LED value
+    }
+
+  }
+  
+  
+  
+  always {
+    reset_cond.in = ~rst_n;    // input raw inverted reset signal
+    rst = reset_cond.out;      // conditioned reset
+    
+    led = 8h00;                // turn LEDs off
+
+    usb_tx = usb_rx;           // just echo the serial data
+    
+    cpu.din = 8hxx;            // default to don't care
+    
+    // if cpu uses address 128
+    if (cpu.address == 128) {
+      if (cpu.write)
+        led_reg.d = cpu.dout; // update the LED value
+        
+      if (cpu.read)
+        cpu.din = led_reg.q; // let the CPU read the LED value
+    }
+
+    led = led_reg.q;         // connect LEDs to led_reg
+  }
+  
+}
